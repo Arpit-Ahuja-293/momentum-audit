@@ -9,7 +9,7 @@ visible as a number.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
@@ -85,6 +85,16 @@ def run_walkforward(
 
     The returned ``oos_returns`` is the honest equity curve: every day in it
     was produced by parameters chosen without seeing that day.
+
+    Each row in ``folds`` carries, in addition to the fold window fields:
+    ``selected`` (the chosen config as a dict), ``selected_key``, ``is_sharpe``
+    (the selected config's in-sample Sharpe), ``is_sharpe_by_config`` (every
+    config's in-sample Sharpe, keyed by ``Config.key()``), ``oos_sharpe``,
+    ``oos_days``, and ``selection_fallback``. ``selection_fallback`` is
+    ``True`` when every config's in-sample Sharpe was non-finite for that
+    fold (e.g. the in-sample window fell entirely in a warmup/NaN region, or
+    every config produced a constant return series), forcing an arbitrary
+    pick rather than a real comparison; it is ``False`` on a normal fold.
     """
     runs = {cfg.key(): strategy.run_config(inputs, cfg, bps_per_side=bps_per_side)
             for cfg in configs}
@@ -99,6 +109,7 @@ def run_walkforward(
             for key, res in runs.items()
         }
         clean = {k: v for k, v in is_sharpe_by_config.items() if np.isfinite(v)}
+        fallback = not clean
         selected_key = max(clean, key=lambda k: clean[k]) if clean else list(runs)[0]
 
         chosen = runs[selected_key]
@@ -117,6 +128,7 @@ def run_walkforward(
                 "is_sharpe_by_config": {k: float(v) for k, v in is_sharpe_by_config.items()},
                 "oos_sharpe": float(metrics.sharpe_ratio(oos)),
                 "oos_days": int(len(oos)),
+                "selection_fallback": bool(fallback),
             }
         )
         rows.append(row)
