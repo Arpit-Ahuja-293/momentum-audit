@@ -23,9 +23,7 @@ def load_panel(path: str = "data/prices.parquet") -> pd.DataFrame:
     panel = pd.read_parquet(path)
     if not isinstance(panel.index, pd.DatetimeIndex):
         panel.index = pd.DatetimeIndex(panel.index)
-    result = panel.sort_index()
-    result.index.freq = pd.infer_freq(result.index)
-    return result
+    return panel.sort_index()
 
 
 def load_universe(path: str = "data/universe.csv") -> pd.DataFrame:
@@ -53,19 +51,18 @@ def load_benchmark(path: str = "data/benchmark.parquet") -> pd.Series:
     frame = pd.read_parquet(path)
     if not isinstance(frame.index, pd.DatetimeIndex):
         frame.index = pd.DatetimeIndex(frame.index)
-    result = frame.iloc[:, 0].sort_index()
-    result.index.freq = pd.infer_freq(result.index)
-    return result
+    return frame.iloc[:, 0].sort_index()
 
 
 def daily_returns(close: pd.DataFrame) -> pd.DataFrame:
     """Simple daily returns. Missing prices produce zero, not NaN.
 
-    A name with no price on a day is not held (the eligibility mask and the
-    weight construction see to that), so a zero here cannot leak return into
-    the book -- it only keeps the matrix arithmetic clean.
+    Forward-fills prices to handle gaps: a price that reappears after a gap
+    realizes its true return on that day, not an erased NaN. For a name not
+    yet listed (leading NaN prices), the name is excluded entirely by the
+    eligibility mask regardless, so filling to zero is correct.
     """
-    return close.pct_change().iloc[1:].fillna(0.0)
+    return close.ffill().pct_change().iloc[1:].fillna(0.0)
 
 
 def eligibility_mask(close: pd.DataFrame, min_history: int = TRADING_DAYS) -> pd.DataFrame:

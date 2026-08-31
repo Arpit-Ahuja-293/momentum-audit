@@ -33,6 +33,22 @@ def test_daily_returns_are_zero_where_price_is_missing():
     assert ret["NEW"].iloc[:40].abs().sum() == 0.0
 
 
+def test_daily_returns_realizes_true_return_after_mid_series_gap():
+    # A name trading -> gap -> trading again should realize the true return
+    # on the resumption day, not have it erased.
+    idx = pd.bdate_range("2015-01-01", periods=10)
+    close = pd.DataFrame({"X": [100.0, 101.0, np.nan, np.nan, 105.0, 106.0, 107.0, 108.0, 109.0, 110.0]}, index=idx)
+    ret = data.daily_returns(close)
+    # Day 1 return: 101 / 100 - 1 = 0.01
+    assert ret["X"].iloc[0] == pytest.approx(0.01)
+    # Day 2 return: gap filled with 101, so 101 / 101 - 1 = 0.0
+    assert ret["X"].iloc[1] == pytest.approx(0.0)
+    # Day 3 return: gap filled with 101, so 101 / 101 - 1 = 0.0
+    assert ret["X"].iloc[2] == pytest.approx(0.0)
+    # Day 4 return: 105 / 101 - 1 = ~0.0396, the true return is realized
+    assert ret["X"].iloc[3] == pytest.approx(105.0 / 101.0 - 1.0)
+
+
 def test_eligibility_requires_252_days_of_history():
     close = make_close()
     mask = data.eligibility_mask(close, min_history=252)
@@ -66,7 +82,7 @@ def test_load_panel_roundtrip(tmp_path):
     path = tmp_path / "prices.parquet"
     close.to_parquet(path)
     loaded = data.load_panel(str(path))
-    pd.testing.assert_frame_equal(loaded, close)
+    pd.testing.assert_frame_equal(loaded, close, check_freq=False)
 
 
 def test_load_panel_raises_a_useful_error_when_missing(tmp_path):
