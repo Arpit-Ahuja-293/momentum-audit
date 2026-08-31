@@ -10,7 +10,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from momaudit import metrics, strategy
+from momaudit import metrics, strategy, walkforward
 
 COST_GRID = np.arange(0.0, 50.0 + 2.5, 2.5)
 
@@ -23,8 +23,10 @@ def cost_curve(
 ) -> pd.DataFrame:
     """Annualised return and Sharpe across a grid of per-side costs.
 
-    ``restrict_to`` limits the evaluation to a subset of dates -- used to run
-    the curve on the stitched out-of-sample window rather than the full sample.
+    ``restrict_to`` filters a fixed-config backtest to a date window. This is
+    NOT a walk-forward result -- it measures a strategy nobody could have
+    selected in advance. Use ``walkforward_cost_curve`` for out-of-sample
+    cost sensitivity built from in-sample selected configs per fold.
     """
     grid = COST_GRID if bps_grid is None else np.asarray(bps_grid, dtype=float)
     rows = []
@@ -62,3 +64,33 @@ def breakeven_bps(curve: pd.DataFrame, column: str) -> float | None:
                 return float(x[i])
             return float(x[i - 1] + (x[i] - x[i - 1]) * y[i - 1] / span)
     return None
+
+
+def walkforward_cost_curve(
+    inputs: strategy.Inputs,
+    configs: list[strategy.Config],
+    bps_grid: np.ndarray | None = None,
+    n_folds: int = 5,
+) -> pd.DataFrame:
+    """Cost sensitivity of the walk-forward out-of-sample series itself.
+
+    The walk-forward is re-run at each cost level, because cost changes which
+    config each fold selects -- selection ranks on net Sharpe. Filtering a
+    fixed-config backtest to out-of-sample dates would answer a different
+    question: it measures a strategy nobody could have chosen in advance.
+    """
+    grid = COST_GRID if bps_grid is None else np.asarray(bps_grid, dtype=float)
+    rows = []
+    for bps in grid:
+        wf_result = walkforward.run_walkforward(
+            inputs, configs, bps_per_side=float(bps), n_folds=n_folds
+        )
+        oos_returns = wf_result["oos_returns"]
+        rows.append(
+            {
+                "bps": float(bps),
+                "ann_return": metrics.annualized_return(oos_returns),
+                "sharpe": metrics.sharpe_ratio(oos_returns),
+            }
+        )
+    return pd.DataFrame(rows)
