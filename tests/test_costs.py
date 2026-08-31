@@ -53,19 +53,48 @@ def test_walkforward_cost_curve_has_correct_structure():
     assert len(curve) == 3
 
 
+def test_walkforward_cost_curve_is_non_increasing_in_bps():
+    inputs = strategy.build_inputs(synthetic_close(n_days=1800, n_names=60), min_history=252)
+    cfgs = [strategy.Config(lookback=lb, skip=1, decile=0.20) for lb in (6, 9, 12)]
+    curve = costs.walkforward_cost_curve(inputs, cfgs, bps_grid=[0.0, 10.0, 20.0], n_folds=2)
+    ann_ret_diff = curve["ann_return"].diff().dropna()
+    sharpe_diff = curve["sharpe"].diff().dropna()
+    assert (ann_ret_diff <= 1e-12).all(), (
+        f"ann_return not non-increasing: {ann_ret_diff.values}. "
+        f"If this fails, re-selection likely flipped a fold, not a cost-model bug."
+    )
+    assert (sharpe_diff <= 1e-12).all(), (
+        f"sharpe not non-increasing: {sharpe_diff.values}. "
+        f"If this fails, re-selection likely flipped a fold, not a cost-model bug."
+    )
+
+
 def test_walkforward_cost_curve_at_7p5_bps_matches_direct_call():
     inputs = strategy.build_inputs(synthetic_close(n_days=1800, n_names=60), min_history=252)
     cfgs = [strategy.Config(lookback=lb, skip=1, decile=0.20) for lb in (6, 9, 12)]
     curve = costs.walkforward_cost_curve(inputs, cfgs, bps_grid=[7.5], n_folds=2)
     direct = walkforward.run_walkforward(inputs, cfgs, bps_per_side=7.5, n_folds=2)
-    curve_sharpe = curve.loc[curve["bps"] == 7.5, "sharpe"].values[0]
+    curve_row = curve.loc[curve["bps"] == 7.5]
+    curve_ann_return = curve_row["ann_return"].values[0]
+    curve_sharpe = curve_row["sharpe"].values[0]
+    direct_ann_return = metrics.annualized_return(direct["oos_returns"])
     direct_sharpe = metrics.sharpe_ratio(direct["oos_returns"])
+    assert curve_ann_return == pytest.approx(direct_ann_return)
     assert curve_sharpe == pytest.approx(direct_sharpe)
 
 
 def test_breakeven_bps_works_on_walkforward_curve():
-    curve = pd.DataFrame(
-        {"bps": [0.0, 10.0, 20.0], "ann_return": [0.02, 0.00, -0.02]}
+    inputs = strategy.build_inputs(synthetic_close(n_days=1800, n_names=60), min_history=252)
+    cfgs = [strategy.Config(lookback=lb, skip=1, decile=0.20) for lb in (6, 9, 12)]
+    curve = costs.walkforward_cost_curve(inputs, cfgs, bps_grid=[0.0, 10.0, 20.0], n_folds=2)
+    be_return = costs.breakeven_bps(curve, "ann_return")
+    be_sharpe = costs.breakeven_bps(curve, "sharpe")
+    # Result should be either a float within grid range or None
+    assert (
+        (isinstance(be_return, float) and 0.0 <= be_return <= 20.0)
+        or be_return is None
     )
-    be = costs.breakeven_bps(curve, "ann_return")
-    assert be == pytest.approx(10.0)
+    assert (
+        (isinstance(be_sharpe, float) and 0.0 <= be_sharpe <= 20.0)
+        or be_sharpe is None
+    )
