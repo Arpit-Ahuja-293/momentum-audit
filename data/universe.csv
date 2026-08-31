@@ -1,0 +1,102 @@
+ticker,name,scraped_on
+AAPL,Apple Inc.,2026-08-31
+ABBV,AbbVie,2026-08-31
+ABT,Abbott Laboratories,2026-08-31
+ACN,Accenture,2026-08-31
+ADBE,Adobe Inc.,2026-08-31
+AMAT,Applied Materials,2026-08-31
+AMD,Advanced Micro Devices,2026-08-31
+AMGN,Amgen,2026-08-31
+AMT,American Tower,2026-08-31
+AMZN,Amazon,2026-08-31
+AVGO,Broadcom,2026-08-31
+AXP,American Express,2026-08-31
+BA,Boeing,2026-08-31
+BAC,Bank of America,2026-08-31
+BKNG,Booking Holdings,2026-08-31
+BLK,BlackRock,2026-08-31
+BMY,Bristol Myers Squibb,2026-08-31
+BNY,BNY Mellon,2026-08-31
+BRK-B,Berkshire Hathaway (Class B),2026-08-31
+C,Citigroup,2026-08-31
+CAT,Caterpillar Inc.,2026-08-31
+CL,Colgate-Palmolive,2026-08-31
+CMCSA,Comcast,2026-08-31
+COF,Capital One,2026-08-31
+COP,ConocoPhillips,2026-08-31
+COST,Costco,2026-08-31
+CRM,Salesforce,2026-08-31
+CSCO,Cisco,2026-08-31
+CVS,CVS Health,2026-08-31
+CVX,Chevron Corporation,2026-08-31
+DE,Deere & Company,2026-08-31
+DHR,Danaher Corporation,2026-08-31
+DIS,Walt Disney Company (The),2026-08-31
+DUK,Duke Energy,2026-08-31
+EMR,Emerson Electric,2026-08-31
+FDX,FedEx,2026-08-31
+GD,General Dynamics,2026-08-31
+GE,GE Aerospace,2026-08-31
+GEV,GE Vernova,2026-08-31
+GILD,Gilead Sciences,2026-08-31
+GM,General Motors,2026-08-31
+GOOG,Alphabet Inc. (Class C),2026-08-31
+GOOGL,Alphabet Inc. (Class A),2026-08-31
+GS,Goldman Sachs,2026-08-31
+HD,Home Depot,2026-08-31
+HONA,Honeywell Aerospace,2026-08-31
+IBM,IBM,2026-08-31
+INTC,Intel,2026-08-31
+INTU,Intuit,2026-08-31
+ISRG,Intuitive Surgical,2026-08-31
+JNJ,Johnson & Johnson,2026-08-31
+JPM,JPMorgan Chase,2026-08-31
+KO,Coca-Cola Company (The),2026-08-31
+LIN,Linde plc,2026-08-31
+LLY,Eli Lilly and Company,2026-08-31
+LMT,Lockheed Martin,2026-08-31
+LOW,Lowe's,2026-08-31
+LRCX,Lam Research,2026-08-31
+MA,Mastercard,2026-08-31
+MCD,McDonald's,2026-08-31
+MDLZ,Mondelēz International,2026-08-31
+MDT,Medtronic,2026-08-31
+META,Meta Platforms,2026-08-31
+MMM,3M,2026-08-31
+MO,Altria,2026-08-31
+MRK,Merck & Co.,2026-08-31
+MS,Morgan Stanley,2026-08-31
+MSFT,Microsoft,2026-08-31
+MU,Micron Technology,2026-08-31
+NEE,NextEra Energy,2026-08-31
+NFLX,"Netflix, Inc.",2026-08-31
+NKE,"Nike, Inc.",2026-08-31
+NOW,ServiceNow,2026-08-31
+NVDA,Nvidia,2026-08-31
+ORCL,Oracle Corporation,2026-08-31
+PEP,PepsiCo,2026-08-31
+PFE,Pfizer,2026-08-31
+PG,Procter & Gamble,2026-08-31
+PLTR,Palantir Technologies,2026-08-31
+PM,Philip Morris International,2026-08-31
+QCOM,Qualcomm,2026-08-31
+RTX,RTX Corporation,2026-08-31
+SBUX,Starbucks,2026-08-31
+SCHW,Charles Schwab Corporation,2026-08-31
+SO,Southern Company,2026-08-31
+SPG,Simon Property Group,2026-08-31
+T,AT&T,2026-08-31
+TMO,Thermo Fisher Scientific,2026-08-31
+TMUS,T-Mobile US,2026-08-31
+TSLA,"Tesla, Inc.",2026-08-31
+TXN,Texas Instruments,2026-08-31
+UBER,Uber,2026-08-31
+UNH,UnitedHealth Group,2026-08-31
+UNP,Union Pacific Corporation,2026-08-31
+UPS,United Parcel Service,2026-08-31
+USB,U.S. Bancorp,2026-08-31
+V,Visa Inc.,2026-08-31
+VZ,Verizon,2026-08-31
+WFC,Wells Fargo,2026-08-31
+WMT,Walmart,2026-08-31
+XOM,ExxonMobil,2026-08-31
