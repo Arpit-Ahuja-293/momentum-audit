@@ -456,18 +456,38 @@ Only scripts/download.py may import yfinance or touch the network.
 
 import pathlib
 
+import re
+
 MODULE_DIR = pathlib.Path(__file__).resolve().parents[1] / "momaudit"
 FORBIDDEN = ["yfinance", "requests", "urllib.request", "urllib3", "httpx"]
 
 
-def test_momaudit_package_has_no_network_imports():
+def find_network_imports(directory, forbidden_tokens=FORBIDDEN):
+    """Report every forbidden import under ``directory``.
+
+    Matches both `import x` and `from x import y`, anchored to the start of a
+    line so a mention inside a comment or docstring does not trip it. Exposed
+    as a callable so the guard itself can be tested -- a guard nothing tests
+    is a guard nobody should trust.
+    """
     offenders = []
-    for path in MODULE_DIR.rglob("*.py"):
+    for path in sorted(pathlib.Path(directory).rglob("*.py")):
         text = path.read_text()
-        for token in FORBIDDEN:
-            if f"import {token}" in text:
+        for token in forbidden_tokens:
+            if re.search(rf"^\s*(import|from)\s+{re.escape(token)}\b", text, re.MULTILINE):
                 offenders.append(f"{path.name}: {token}")
+    return offenders
+
+
+def test_momaudit_package_has_no_network_imports():
+    offenders = find_network_imports(MODULE_DIR)
     assert offenders == [], f"network imports found in momaudit/: {offenders}"
+
+
+def test_network_import_guard_catches_from_import_form(tmp_path):
+    """The guard must see both import forms, or it is protection in name only."""
+    (tmp_path / "leaky.py").write_text("from yfinance import Ticker\n")
+    assert find_network_imports(tmp_path) == ["leaky.py: yfinance"]
 ```
 
 - [ ] **Step 2: Run the tests to verify they fail**
@@ -535,11 +555,17 @@ def load_benchmark(path: str = "data/benchmark.parquet") -> pd.Series:
 def daily_returns(close: pd.DataFrame) -> pd.DataFrame:
     """Simple daily returns. Missing prices produce zero, not NaN.
 
-    A name with no price on a day is not held (the eligibility mask and the
-    weight construction see to that), so a zero here cannot leak return into
-    the book -- it only keeps the matrix arithmetic clean.
+    Prices are forward-filled before differencing, so a missing print means
+    "the price did not change that day" and the true return lands on the day
+    the price reappears. Differencing the raw panel instead would divide by a
+    missing prior observation and erase that return for a name the strategy
+    may well be holding.
+
+    Leading NaNs survive the ffill and become zero, which is correct: a name
+    that has not listed yet is excluded from trading by the eligibility mask
+    regardless, so the zero only keeps the matrix arithmetic clean.
     """
-    return close.pct_change().iloc[1:].fillna(0.0)
+    return close.ffill().pct_change().iloc[1:].fillna(0.0)
 
 
 def eligibility_mask(close: pd.DataFrame, min_history: int = TRADING_DAYS) -> pd.DataFrame:
