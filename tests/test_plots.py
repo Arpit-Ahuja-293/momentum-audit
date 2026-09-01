@@ -91,3 +91,33 @@ def test_equity_curve_gives_each_reference_series_its_own_colour(tmp_path):
     assert len(set(colours)) == 3
     path = plots.plot_equity_curve(series, str(tmp_path / "equity3.png"), "Test")
     assert os.path.exists(path)
+
+
+def test_equity_curve_uses_a_log_axis(tmp_path, monkeypatch):
+    """A 50x reference and a 3x strategy cannot share a linear axis honestly.
+
+    ``plot_equity_curve`` closes its figure before returning, so the axes are
+    captured on the way out of ``plt.subplots`` rather than read back after.
+    """
+    captured = {}
+    real_subplots = plt.subplots
+
+    def spy(*args, **kwargs):
+        fig, axes = real_subplots(*args, **kwargs)
+        captured.setdefault("axes", axes)
+        return fig, axes
+
+    monkeypatch.setattr(plots.plt, "subplots", spy)
+
+    idx = pd.bdate_range("2013-01-01", periods=500)
+    rng = np.random.default_rng(31)
+    series = {
+        "Strategy": pd.Series(rng.normal(0.0002, 0.01, 500), index=idx),
+        "Runaway reference": pd.Series(rng.normal(0.008, 0.01, 500), index=idx),
+    }
+    plots.plot_equity_curve(series, str(tmp_path / "log.png"), "Test")
+
+    equity_ax = captured["axes"][0]
+    assert equity_ax.get_yscale() == "log"
+    # the drawdown panel is signed and crosses zero, so it must stay linear
+    assert captured["axes"][1].get_yscale() == "linear"

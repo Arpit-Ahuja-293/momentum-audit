@@ -121,3 +121,43 @@ def test_bonferroni_note_calls_out_an_unresolvable_threshold():
     payload["sweep"]["bonferroni"]["p_resolution"] = 1 / 1001
     payload["sweep"]["bonferroni"]["resolvable"] = True
     assert render_readme.build_context(payload)["bonferroni_note"] == ""
+
+
+def test_reference_sharpes_are_reported_on_both_windows():
+    """A benchmark on a different window than the headline must be labelled.
+
+    The walk-forward series starts years after the full sample, so a single
+    unlabelled reference Sharpe would be compared against whichever headline
+    number the reader's eye landed on.
+    """
+    payload = minimal_payload()
+    payload["references"] = {
+        "window_full_sample": {"long_only_decile": {"sharpe": 1.05},
+                               "spy": {"sharpe": 0.86}},
+        "window_oos": {"long_only_decile": {"sharpe": 0.91},
+                       "spy": {"sharpe": 0.78}},
+    }
+    ctx = render_readme.build_context(payload)
+    assert ctx["long_only_sharpe"] == "1.05"
+    assert ctx["spy_sharpe"] == "0.86"
+    assert ctx["long_only_sharpe_oos"] == "0.91"
+    assert ctx["spy_sharpe_oos"] == "0.78"
+
+
+def test_reference_windows_fall_back_for_payloads_without_them():
+    """Runs written before the windowed references still render."""
+    ctx = render_readme.build_context(minimal_payload())
+    assert ctx["long_only_sharpe"] == "0.70"
+    assert ctx["long_only_sharpe_oos"] == "0.70"
+
+
+def test_both_deflated_sharpe_variants_reach_the_context():
+    payload = minimal_payload()
+    payload["sweep"]["deflated_sharpe"] = {
+        "dsr": 0.87, "n_trials": 32, "variance_source": "across_trial",
+    }
+    payload["sweep"]["deflated_sharpe_null_variance"] = {"dsr": 0.42, "n_trials": 32}
+    ctx = render_readme.build_context(payload)
+    assert ctx["dsr"] == "0.870"
+    assert ctx["dsr_null_variance"] == "0.420"
+    assert ctx["dsr_variance_source"] == "across_trial"

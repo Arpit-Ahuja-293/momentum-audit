@@ -98,3 +98,36 @@ def test_bonferroni_resolution_defaults_to_unknown():
     out = sweep.bonferroni_survivors({"a": 0.001, "b": 0.4})
     assert out["p_resolution"] is None
     assert out["resolvable"] is None
+
+
+def test_deflated_sharpe_records_which_variance_it_used():
+    """A DSR is meaningless without knowing which V[SR] fed it."""
+    rng = np.random.default_rng(21)
+    idx = pd.bdate_range("2012-01-02", periods=2000)
+    r = pd.Series(rng.normal(0.0004, 0.01, 2000), index=idx)
+
+    fallback = sweep.deflated_sharpe_ratio(r, n_trials=32)
+    assert fallback["variance_source"] == "null_fallback"
+    assert fallback["sharpe_variance"] == pytest.approx(1.0 / (len(r) - 1))
+
+    supplied = sweep.deflated_sharpe_ratio(r, n_trials=32, sharpe_variance=1e-5)
+    assert supplied["variance_source"] == "across_trial"
+    assert supplied["sharpe_variance"] == pytest.approx(1e-5)
+
+
+def test_smaller_trial_variance_deflates_less():
+    """Near-identical trials are not 32 independent bets, and DSR must show it.
+
+    This is the whole point of passing the observed across-trial variance: a
+    grid whose configs all produce nearly the same Sharpe has a small
+    V[{SR_n}], a correspondingly small expected maximum under the null, and so
+    a less punishing deflation than the generic 1/(n-1) stand-in implies.
+    """
+    rng = np.random.default_rng(22)
+    idx = pd.bdate_range("2012-01-02", periods=2000)
+    r = pd.Series(rng.normal(0.0006, 0.01, 2000), index=idx)
+
+    tight = sweep.deflated_sharpe_ratio(r, n_trials=32, sharpe_variance=1e-5)
+    loose = sweep.deflated_sharpe_ratio(r, n_trials=32, sharpe_variance=1e-3)
+    assert tight["expected_max_sharpe_periodic"] < loose["expected_max_sharpe_periodic"]
+    assert tight["dsr"] > loose["dsr"]

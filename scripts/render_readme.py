@@ -26,6 +26,9 @@ def build_context(payload: dict) -> dict:
     sw = payload["sweep"]
     cs = payload["costs"]
     refs = payload["references"]
+    # Older runs stored only the full-sample references at the top level.
+    refs_full = refs.get("window_full_sample", refs)
+    refs_oos = refs.get("window_oos", refs_full)
 
     be_oos = cs["breakeven_bps_return_oos"]
     grid_max = max((row["bps"] for row in cs.get("oos_curve") or []), default=50.0)
@@ -119,8 +122,19 @@ def build_context(payload: dict) -> dict:
             else f"{cs['breakeven_bps_return_full']:.1f} bps"
         ),
 
-        "long_only_sharpe": num(refs["long_only_decile"]["sharpe"]),
-        "spy_sharpe": num(refs["spy"]["sharpe"]) if refs.get("spy") else "n/a",
+        "dsr_variance_source": sw["deflated_sharpe"].get("variance_source", "unknown"),
+        "dsr_null_variance": (
+            num(sw["deflated_sharpe_null_variance"]["dsr"], 3)
+            if "deflated_sharpe_null_variance" in sw else "n/a"
+        ),
+
+        # Reference Sharpes are reported on both windows and labelled as such.
+        # The full-sample figure is comparable to the full-sample Sharpe; only
+        # the OOS one is comparable to the walk-forward Sharpe.
+        "long_only_sharpe": num(refs_full["long_only_decile"]["sharpe"]),
+        "spy_sharpe": num(refs_full["spy"]["sharpe"]) if refs_full.get("spy") else "n/a",
+        "long_only_sharpe_oos": num(refs_oos["long_only_decile"]["sharpe"]),
+        "spy_sharpe_oos": num(refs_oos["spy"]["sharpe"]) if refs_oos.get("spy") else "n/a",
 
         "verdict_word": "survives" if survives else "does not survive",
     }

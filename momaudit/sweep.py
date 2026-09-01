@@ -64,9 +64,17 @@ def deflated_sharpe_ratio(
     and how short the sample is. A DSR of 0.6 means: even after deflating for
     32 trials, there is a 60% chance this Sharpe is real.
 
-    ``sharpe_variance`` is the variance of the periodic Sharpe ratios across
-    the trials; when omitted it defaults to 1/(n-1), the variance of a Sharpe
-    estimate under the null, which is the conventional fallback.
+    ``sharpe_variance`` is V[{SR_n}], the variance of the periodic Sharpe
+    ratios actually observed across the trials. That is the quantity Bailey
+    and Lopez de Prado's expression calls for, and it is the one to pass
+    whenever the trial Sharpes are in hand -- it is what lets the correction
+    know that 32 near-identical momentum variants are not 32 independent bets.
+
+    When omitted it falls back to 1/(n-1), the sampling variance of a single
+    Sharpe estimate under the null. That is a *different* quantity, and it is
+    only a stand-in for when the trials are unavailable. The returned
+    ``variance_source`` records which of the two was used, so a DSR can never
+    be read without knowing which question it answered.
     """
     r = returns.dropna()
     n = len(r)
@@ -75,7 +83,12 @@ def deflated_sharpe_ratio(
             "sharpe_annual": float("nan"), "sharpe_periodic": float("nan"),
             "skew": float("nan"), "kurtosis": float("nan"), "n_obs": int(n),
             "n_trials": int(n_trials), "expected_max_sharpe_periodic": float("nan"),
-            "dsr": float("nan"),
+            "dsr": float("nan"), "sharpe_variance": (
+                None if sharpe_variance is None else float(sharpe_variance)
+            ),
+            "variance_source": (
+                "null_fallback" if sharpe_variance is None else "across_trial"
+            ),
         }
 
     sd = float(r.std(ddof=1))
@@ -107,6 +120,10 @@ def deflated_sharpe_ratio(
         "n_trials": int(n_trials),
         "expected_max_sharpe_periodic": float(sr0),
         "dsr": dsr,
+        "sharpe_variance": float(var_sr),
+        "variance_source": (
+            "null_fallback" if sharpe_variance is None else "across_trial"
+        ),
     }
 
 

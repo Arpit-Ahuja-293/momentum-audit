@@ -30,9 +30,16 @@ Across the 32-configuration sweep the best result is
 best of all 32 configurations, 500 times, on shuffled signal —
 that best-of-grid result carries **p = 0.118**, with a null 95th
 percentile of 0.53. The Deflated Sharpe Ratio, accounting for
-32 trials plus the skew and kurtosis of the returns, is **0.424**.
+32 trials plus the skew and kurtosis of the returns, is **0.869** —
+computed, as Bailey and López de Prado define it, from the variance of the Sharpe
+ratios actually observed across the 32 trials. That variance is small
+because the 32 configurations are near-copies of each other, and a small trial
+variance is what makes the DSR generous here. Substituting the conventional
+1/(n−1) fallback instead gives 0.424. **The sweep-max null is the
+number to trust of the three**: it measures the best-of-grid distribution directly
+rather than assuming a shape for it, and it does not reject.
 Bonferroni at the 0.00156 threshold leaves **0**
-of 32 configurations standing (21 survive an
+of 32 configurations standing (22 survive an
 uncorrected 0.05).
 
 The out-of-sample edge never reaches zero inside the tested grid: it is still positive at 50 bps per side.
@@ -58,12 +65,20 @@ out-of-sample series, so all three curves compound over the identical window.
 | Monthly hit rate | 50% |
 | Permutation null p-value | 0.018 |
 | Block bootstrap p-value | 0.124 |
-| Deflated Sharpe Ratio (32 trials) | 0.424 |
+| Deflated Sharpe Ratio (32 trials, across-trial variance) | 0.869 |
+| Deflated Sharpe Ratio (1/(n−1) fallback variance) | 0.424 |
 | Sweep-max p-value | 0.118 |
 | Bonferroni survivors | 0 of 32 |
 | OOS breakeven cost | survives the full 50 bps grid |
-| Long-only top decile Sharpe | 1.05 |
-| SPY buy-and-hold Sharpe | 0.86 |
+| Long-only top decile Sharpe (full sample) | 1.05 |
+| SPY buy-and-hold Sharpe (full sample) | 0.86 |
+| Long-only top decile Sharpe (walk-forward OOS window) | 1.16 |
+| SPY buy-and-hold Sharpe (walk-forward OOS window) | 0.91 |
+
+Reference Sharpes are given on both windows because the walk-forward series starts
+later than the full sample. Only the OOS-window figures are comparable to the
+walk-forward Sharpe of 0.43; only the full-sample figures are comparable
+to the 0.26 above.
 
 ![Cost sensitivity](figures/cost_sensitivity.png)
 
@@ -113,7 +128,11 @@ the book turns over.
 
 **Walk-forward.** Five expanding-window folds. Each fold selects the best of
 32 configurations on data strictly preceding its evaluation window. The
-headline equity curve is the stitched out-of-sample series only.
+headline equity curve is the stitched out-of-sample series only. One cost is not
+charged in that stitch: when consecutive folds select different configurations, the
+book that switches between them trades, and that transition is not billed. With
+five folds it happens at most four times — of the order of 0.05% in total at
+7.5 bps — so it is disclosed rather than modelled.
 
 **Nulls.** The permutation null shuffles momentum ranks across names at each rebalance
 and reruns the whole engine, preserving cross-sectional covariance, turnover, and cost
@@ -143,7 +162,7 @@ test suite and both scripts run offline.
 `scripts/download.py` is the only module that fetches anything, and rerunning it will
 produce slightly different results as the index membership and adjusted history move.
 
-Run recorded in `results/audit.json`: commit `6ea075e5`, run on 2026-08-31,
+Run recorded in `results/audit.json`: commit `2ad4cdef`, run on 2026-08-31,
 seed 20260831.
 
 ## Repo layout

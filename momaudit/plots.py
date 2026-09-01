@@ -65,7 +65,12 @@ def plot_equity_curve(series: dict[str, pd.Series], path: str, title: str) -> st
             linewidth=1.8 if i == 0 else 1.1,
             linestyle="-" if i == 0 else "--",
         )
-    ax.set_ylabel("Growth of 1.0")
+    # Log scale. A reference that compounds to 50x and a strategy that
+    # compounds to 3x cannot share a linear axis without the strategy becoming
+    # an unreadable flat line -- and "flat next to the benchmark" is a visual
+    # claim the linear axis makes on its own, regardless of the numbers.
+    ax.set_yscale("log")
+    ax.set_ylabel("Growth of 1.0 (log scale)")
     ax.set_title(title)
     ax.legend(frameon=False)
     ax.grid(alpha=0.25)

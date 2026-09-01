@@ -12,6 +12,7 @@ import json
 import os
 import subprocess
 import sys
+import zlib
 
 import numpy as np
 import pandas as pd
@@ -82,7 +83,7 @@ def main() -> None:
     spy = (
         spy_close.pct_change().iloc[1:].reindex(inputs.daily_ret.index).dropna()
     )
-    references = {
+    references_full = {
         "long_only_decile": metrics.summarize(long_only.net, long_only.positions),
         "spy": metrics.summarize(spy),
     }
@@ -90,6 +91,27 @@ def main() -> None:
     print(f"walk-forward ({args.folds} folds x {len(configs)} configs)...")
     wf = walkforward.run_walkforward(inputs, configs, bps_per_side=args.bps, n_folds=args.folds)
     oos = wf["oos_returns"]
+
+    # The walk-forward series starts later than the full sample, so a reference
+    # measured over the full sample is not comparable to it. Both windows are
+    # recorded and the README labels which is which -- an unlabelled benchmark
+    # on a different window is precisely the sleight of hand this repo exists
+    # to catch.
+    window = oos.index
+    references_oos = {
+        "long_only_decile": metrics.summarize(
+            long_only.net.reindex(window).dropna(),
+            long_only.positions.reindex(window).dropna(how="all"),
+        ),
+        "spy": metrics.summarize(spy.reindex(window).dropna()),
+    }
+    references = {
+        "window_full_sample": references_full,
+        "window_oos": references_oos,
+        # Kept at the top level for backward compatibility with readers of
+        # earlier runs; identical to references["window_full_sample"].
+        **references_full,
+    }
 
     print(f"permutation null ({args.permutation_draws} draws)...")
     perm = nulls.permutation_null(
@@ -113,14 +135,32 @@ def main() -> None:
     print("per-config permutation p-values (this is the slow part)...")
     per_config_p = {}
     for cfg in configs:
+        # A per-config seed, derived from the run seed the same way
+        # sweep_max_null derives its own: with one shared seed every config
+        # draws the identical permutation stream wherever the eligibility
+        # pattern matches, so the 32 p-values would move together for a
+        # reason that has nothing to do with the signal.
+        cfg_seed = (args.seed + zlib.crc32(cfg.key().encode())) % (2 ** 32)
         draws = nulls.permutation_null(
             inputs, cfg, n_draws=args.per_config_draws, bps_per_side=args.bps,
-            seed=args.seed,
+            seed=cfg_seed,
         )
         observed = float(sweep_df.loc[sweep_df["key"] == cfg.key(), "sharpe"].iloc[0])
         per_config_p[cfg.key()] = nulls.empirical_pvalue(observed, draws)
 
-    dsr = sweep.deflated_sharpe_ratio(best_res.net, n_trials=len(configs))
+    # Bailey and Lopez de Prado's V[{SR_n}] is the variance of the periodic
+    # Sharpes actually observed across the trials -- which the sweep has just
+    # measured. Passing it is the correct application; the 1/(n-1) fallback is
+    # a different quantity and is reported alongside so the gap is visible
+    # rather than hidden in a default argument.
+    trial_sharpes_periodic = (
+        sweep_df["sharpe"].to_numpy(dtype=float) / np.sqrt(metrics.TRADING_DAYS)
+    )
+    trial_variance = float(np.nanvar(trial_sharpes_periodic, ddof=1))
+    dsr = sweep.deflated_sharpe_ratio(
+        best_res.net, n_trials=len(configs), sharpe_variance=trial_variance
+    )
+    dsr_null_variance = sweep.deflated_sharpe_ratio(best_res.net, n_trials=len(configs))
     # An empirical p-value from n draws cannot fall below 1/(n+1); Bonferroni is
     # only a real test when that floor clears the threshold.
     bonf = sweep.bonferroni_survivors(
@@ -192,6 +232,7 @@ def main() -> None:
             "best_config": best_cfg.as_dict(),
             "per_config_pvalues": per_config_p,
             "deflated_sharpe": dsr,
+            "deflated_sharpe_null_variance": dsr_null_variance,
             "bonferroni": bonf,
             "sweep_max_null": {
                 "mean": float(np.nanmean(max_null)),
@@ -218,7 +259,6 @@ def main() -> None:
     # The references are clipped to the out-of-sample window so every curve on
     # the chart compounds over the same dates; a reference that started three
     # years earlier would be a different question drawn on the same axes.
-    window = oos.index
     curves = {"Momentum 12-1 (walk-forward OOS, net)": oos,
               "Long-only top decile (same window, net)": long_only.net.reindex(window).dropna(),
               "SPY buy and hold (same window)": spy.reindex(window).dropna()}

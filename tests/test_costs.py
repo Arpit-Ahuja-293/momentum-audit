@@ -53,20 +53,52 @@ def test_walkforward_cost_curve_has_correct_structure():
     assert len(curve) == 3
 
 
-def test_walkforward_cost_curve_is_non_increasing_in_bps():
+def test_walkforward_cost_curve_trends_down_and_only_kinks_on_reselection():
+    """Higher costs must hurt overall, but re-selection may kink the curve.
+
+    The walk-forward is re-run at each cost level, and a higher cost can push
+    a fold onto a lower-turnover configuration whose out-of-sample return is
+    better than the one the cheaper level chose. That produces a genuine local
+    increase -- the real 101-ticker panel shows one at 17.5 bps -- so a blanket
+    "non-increasing" assertion would encode an invariant the module does not
+    have and would fail on real data while passing on this fixture.
+
+    What must hold: the curve trends down end to end, and every local increase
+    is explained by the fold selection changing rather than by the cost model
+    crediting money back.
+    """
     inputs = strategy.build_inputs(synthetic_close(n_days=1800, n_names=60), min_history=252)
     cfgs = [strategy.Config(lookback=lb, skip=1, decile=0.20) for lb in (6, 9, 12)]
-    curve = costs.walkforward_cost_curve(inputs, cfgs, bps_grid=[0.0, 10.0, 20.0], n_folds=2)
-    ann_ret_diff = curve["ann_return"].diff().dropna()
-    sharpe_diff = curve["sharpe"].diff().dropna()
-    assert (ann_ret_diff <= 1e-12).all(), (
-        f"ann_return not non-increasing: {ann_ret_diff.values}. "
-        f"If this fails, re-selection likely flipped a fold, not a cost-model bug."
+    grid = [0.0, 10.0, 20.0, 30.0]
+    curve = costs.walkforward_cost_curve(inputs, cfgs, bps_grid=grid, n_folds=2)
+
+    assert curve["ann_return"].iloc[-1] <= curve["ann_return"].iloc[0] + 1e-12
+    assert curve["sharpe"].iloc[-1] <= curve["sharpe"].iloc[0] + 1e-12
+
+    selections = [
+        tuple(row["selected_key"] for row in
+              walkforward.run_walkforward(inputs, cfgs, bps_per_side=bps, n_folds=2)["folds"])
+        for bps in grid
+    ]
+    for i in range(1, len(grid)):
+        rose = curve["ann_return"].iloc[i] > curve["ann_return"].iloc[i - 1] + 1e-12
+        if rose:
+            assert selections[i] != selections[i - 1], (
+                f"ann_return rose from {grid[i - 1]} to {grid[i]} bps with the same "
+                f"config selected in every fold ({selections[i]}) -- that is the cost "
+                f"model paying money back, not re-selection."
+            )
+
+
+def test_walkforward_cost_curve_is_non_increasing_when_selection_is_fixed():
+    """With one config there is nothing to re-select, so costs must only hurt."""
+    inputs = strategy.build_inputs(synthetic_close(n_days=1800, n_names=60), min_history=252)
+    cfgs = [strategy.Config(lookback=9, skip=1, decile=0.20)]
+    curve = costs.walkforward_cost_curve(
+        inputs, cfgs, bps_grid=[0.0, 10.0, 20.0, 30.0], n_folds=2
     )
-    assert (sharpe_diff <= 1e-12).all(), (
-        f"sharpe not non-increasing: {sharpe_diff.values}. "
-        f"If this fails, re-selection likely flipped a fold, not a cost-model bug."
-    )
+    assert (curve["ann_return"].diff().dropna() <= 1e-12).all()
+    assert (curve["sharpe"].diff().dropna() <= 1e-12).all()
 
 
 def test_walkforward_cost_curve_at_7p5_bps_matches_direct_call():
