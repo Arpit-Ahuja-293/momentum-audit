@@ -168,8 +168,8 @@ test suite and both scripts run offline.
 `scripts/download.py` is the only module that fetches anything, and rerunning it will
 produce slightly different results as the index membership and adjusted history move.
 
-Run recorded in `results/audit.json`: commit `2ad4cdef`, run on 2026-08-31,
-seed 20260831. Whether the working tree matched that commit was not recorded for this run. The pipeline is deterministic: rerunning it on the
+Run recorded in `results/audit.json`: commit `96da99f8`, run on 2026-09-01,
+seed 20260831. The pipeline is deterministic: rerunning it on the
 committed panel at the same seed reproduces `results/audit.json` byte for byte.
 
 ## Repo layout

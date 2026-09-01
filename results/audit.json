@@ -1,7 +1,8 @@
 {
   "provenance": {
-    "git_commit": "2ad4cdefc02cd92903ea33d01eb18d171ff776cd",
-    "run_on": "2026-08-31",
+    "git_commit": "96da99f831aa616e70569ce52697f787f3fbbc2b",
+    "git_dirty": false,
+    "run_on": "2026-09-01",
     "data_start": "2010-01-04",
     "data_end": "2026-08-31",
     "n_tickers": 101,
