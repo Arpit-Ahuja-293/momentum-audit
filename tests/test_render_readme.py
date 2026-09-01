@@ -86,3 +86,38 @@ def test_verdict_language_follows_the_evidence():
     payload["walkforward"]["summary"]["sharpe"] = 0.9
     payload["costs"]["breakeven_bps_return_oos"] = 45.0
     assert render_readme.build_context(payload)["verdict_word"] == "survives"
+
+
+def test_breakeven_context_reads_as_a_sentence_either_way():
+    payload = minimal_payload()
+    ctx = render_readme.build_context(payload)
+    assert ctx["breakeven_sentence"].endswith(".")
+    assert "9.2 bps" in ctx["breakeven_sentence"]
+
+    payload["costs"]["breakeven_bps_return_oos"] = None
+    ctx = render_readme.build_context(payload)
+    assert ctx["breakeven_sentence"].endswith(".")
+    assert "never" in ctx["breakeven_sentence"].lower()
+    assert "reaches zero at survives" not in ctx["breakeven_sentence"]
+
+
+def test_walkforward_verb_follows_the_direction_of_the_gap():
+    payload = minimal_payload()
+    assert render_readme.build_context(payload)["oos_verb"] == "falls to"
+
+    payload["walkforward"]["mean_is_sharpe"] = 0.10
+    payload["walkforward"]["is_oos_gap"] = -0.02
+    payload["walkforward"]["summary"]["sharpe"] = 0.12
+    assert render_readme.build_context(payload)["oos_verb"] == "holds at"
+
+
+def test_bonferroni_note_calls_out_an_unresolvable_threshold():
+    payload = minimal_payload()
+    payload["sweep"]["bonferroni"]["p_resolution"] = 1 / 201
+    payload["sweep"]["bonferroni"]["resolvable"] = False
+    note = render_readme.build_context(payload)["bonferroni_note"]
+    assert "resolve" in note.lower() or "cannot" in note.lower()
+
+    payload["sweep"]["bonferroni"]["p_resolution"] = 1 / 1001
+    payload["sweep"]["bonferroni"]["resolvable"] = True
+    assert render_readme.build_context(payload)["bonferroni_note"] == ""

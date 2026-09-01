@@ -79,3 +79,22 @@ def test_sweep_max_null_is_reproducible():
     a = sweep.sweep_max_null(inputs, configs, n_draws=3, seed=13)
     b = sweep.sweep_max_null(inputs, configs, n_draws=3, seed=13)
     np.testing.assert_allclose(a, b)
+
+
+def test_bonferroni_flags_a_threshold_finer_than_the_pvalue_resolution():
+    """200 permutation draws cannot produce a p below 1/201, so a Bonferroni
+    threshold under that is unfalsifiable rather than merely unmet."""
+    pvals = {f"c{i}": 0.005 for i in range(32)}
+    out = sweep.bonferroni_survivors(pvals, alpha=0.05, p_resolution=1 / 201)
+    assert out["p_resolution"] == pytest.approx(1 / 201)
+    assert out["resolvable"] is False
+    assert out["n_survivors_corrected"] == 0
+
+    fine = sweep.bonferroni_survivors(pvals, alpha=0.05, p_resolution=1 / 1001)
+    assert fine["resolvable"] is True
+
+
+def test_bonferroni_resolution_defaults_to_unknown():
+    out = sweep.bonferroni_survivors({"a": 0.001, "b": 0.4})
+    assert out["p_resolution"] is None
+    assert out["resolvable"] is None

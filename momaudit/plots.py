@@ -13,7 +13,35 @@ from momaudit import metrics
 
 STRATEGY_COLOR = "#1f3a5f"
 REFERENCE_COLOR = "#9aa5b1"
+REFERENCE_COLORS = ["#9aa5b1", "#5f7a8c", "#b58b6b", "#7a6f9a"]
 ACCENT_COLOR = "#c0392b"
+
+
+def series_colors(n: int) -> list[str]:
+    """Strategy first in the strong colour, then one distinct colour per reference."""
+    refs = [REFERENCE_COLORS[i % len(REFERENCE_COLORS)] for i in range(max(n - 1, 0))]
+    return [STRATEGY_COLOR] + refs
+
+
+def _align_zero_axes(ax, ax2) -> None:
+    """Put y = 0 at the same height on both axes of a twin-axis plot.
+
+    Without this, a zero line drawn for the left axis sits at an arbitrary
+    value of the right one, and a Sharpe curve that never reaches zero can
+    appear to touch the zero line.
+    """
+    lo1, hi1 = ax.get_ylim()
+    lo2, hi2 = ax2.get_ylim()
+    lo1, hi1 = min(lo1, 0.0), max(hi1, 0.0)
+    lo2, hi2 = min(lo2, 0.0), max(hi2, 0.0)
+    span1 = hi1 - lo1
+    if span1 <= 0:
+        return
+    frac = (0.0 - lo1) / span1
+    frac = min(max(frac, 1e-6), 1 - 1e-6)
+    span2 = max(hi2 / (1.0 - frac), (-lo2) / frac, 1e-12)
+    ax.set_ylim(lo1, hi1)
+    ax2.set_ylim(-frac * span2, (1.0 - frac) * span2)
 
 
 def _finish(fig, path: str) -> str:
@@ -28,12 +56,14 @@ def plot_equity_curve(series: dict[str, pd.Series], path: str, title: str) -> st
     fig, (ax, ax_dd) = plt.subplots(
         2, 1, figsize=(10, 6.5), sharex=True, gridspec_kw={"height_ratios": [3, 1]}
     )
+    colors = series_colors(len(series))
     for i, (name, returns) in enumerate(series.items()):
         curve = metrics.equity_curve(returns.dropna())
         ax.plot(
             curve.index, curve.values, label=name,
-            color=STRATEGY_COLOR if i == 0 else REFERENCE_COLOR,
+            color=colors[i],
             linewidth=1.8 if i == 0 else 1.1,
+            linestyle="-" if i == 0 else "--",
         )
     ax.set_ylabel("Growth of 1.0")
     ax.set_title(title)
@@ -90,8 +120,13 @@ def plot_cost_sensitivity(
     breakeven_return: float | None,
     breakeven_sharpe: float | None,
     path: str,
+    title: str = "Cost sensitivity",
 ) -> str:
-    """Annualised return and Sharpe against per-side costs, breakevens marked."""
+    """Annualised return and Sharpe against per-side costs, breakevens marked.
+
+    The caller supplies the title: whether the edge dies inside the grid is a
+    result, not something this function gets to assert.
+    """
     fig, ax = plt.subplots(figsize=(10, 5.5))
     ax.plot(curve["bps"], curve["ann_return"], color=STRATEGY_COLOR,
             linewidth=1.8, label="Annualised return")
@@ -113,7 +148,8 @@ def plot_cost_sensitivity(
                         xytext=(6, 12), textcoords="offset points",
                         color=ACCENT_COLOR, fontsize=10)
 
+    _align_zero_axes(ax, ax2)
     lines = ax.get_lines()[:1] + ax2.get_lines()[:1]
     ax.legend(lines, [l.get_label() for l in lines], frameon=False, loc="upper right")
-    ax.set_title("Cost sensitivity: where the edge dies")
+    ax.set_title(title)
     return _finish(fig, path)

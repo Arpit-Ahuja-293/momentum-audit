@@ -22,8 +22,8 @@ average with a standard deviation of {{permutation_std}}, and its 95th percentil
 {{permutation_q95}}. That puts the observed Sharpe at **p = {{permutation_pvalue}}**.
 
 Walk-forward, where parameters are chosen only on data preceding each evaluation window,
-the Sharpe falls to **{{oos_sharpe}}** — a decay of **{{is_oos_gap}}** from the
-in-sample mean of {{mean_is_sharpe}}.
+the Sharpe {{oos_verb}} **{{oos_sharpe}}**, against an in-sample mean of
+{{mean_is_sharpe}} — a decay of **{{is_oos_gap}}**.
 
 Across the {{n_configs}}-configuration sweep the best result is
 `{{best_config_key}}` at Sharpe {{best_config_sharpe}}. Under the sweep-max null — the
@@ -33,11 +33,14 @@ percentile of {{sweep_max_q95}}. The Deflated Sharpe Ratio, accounting for
 {{n_configs}} trials plus the skew and kurtosis of the returns, is **{{dsr}}**.
 Bonferroni at the {{bonferroni_threshold}} threshold leaves **{{bonferroni_survivors}}**
 of {{n_configs}} configurations standing ({{bonferroni_raw_survivors}} survive an
-uncorrected 0.05).
+uncorrected 0.05).{{bonferroni_note}}
 
-The out-of-sample edge reaches zero at **{{breakeven_bps_oos}}**.
+{{breakeven_sentence}}
 
 ![Out-of-sample equity curve](figures/equity_curve.png)
+
+The reference series in that figure start on the same date as the stitched
+out-of-sample series, so all three curves compound over the identical window.
 
 ![Null distribution with observed Sharpe marked](figures/null_distribution.png)
 
@@ -120,8 +123,10 @@ block 21 days) resamples the demeaned return series. {{permutation_draws}} and
 
 **Multiple testing.** All three corrections are reported, not just the flattering one:
 Deflated Sharpe Ratio at {{n_configs}} trials, Bonferroni on per-configuration
-permutation p-values, and the sweep-max null — {{sweep_max_draws}} draws in which every
-configuration runs on the same shuffled signal and only the best is kept.
+permutation p-values ({{per_config_draws}} draws per configuration, so the finest
+resolvable p-value is {{per_config_p_resolution}}), and the sweep-max null —
+{{sweep_max_draws}} draws in which every configuration runs on the same shuffled signal
+and only the best is kept.
 
 ## Reproduce it
 
@@ -133,7 +138,8 @@ python3.11 -m venv .venv
 .venv/bin/python scripts/render_readme.py
 ```
 
-The committed `data/prices.parquet` means the first three commands need no network.
+Only `pip install` touches the network: the committed `data/prices.parquet` means the
+test suite and both scripts run offline.
 `scripts/download.py` is the only module that fetches anything, and rerunning it will
 produce slightly different results as the index membership and adjusted history move.
 

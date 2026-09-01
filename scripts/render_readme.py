@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import re
-import sys
 
 
 def pct(x, digits=1):
@@ -29,9 +28,32 @@ def build_context(payload: dict) -> dict:
     refs = payload["references"]
 
     be_oos = cs["breakeven_bps_return_oos"]
-    breakeven_text = (
-        f"survives the full 50 bps grid" if be_oos is None else f"{be_oos:.1f} bps per side"
-    )
+    grid_max = max((row["bps"] for row in cs.get("oos_curve") or []), default=50.0)
+    if be_oos is None:
+        breakeven_text = f"survives the full {grid_max:.0f} bps grid"
+        breakeven_sentence = (
+            f"The out-of-sample edge never reaches zero inside the tested grid: it is "
+            f"still positive at {grid_max:.0f} bps per side."
+        )
+    else:
+        breakeven_text = f"{be_oos:.1f} bps per side"
+        breakeven_sentence = (
+            f"The out-of-sample edge reaches zero at {be_oos:.1f} bps per side."
+        )
+
+    gap = w["is_oos_gap"]
+    oos_verb = "falls to" if gap > 0.05 else ("holds at" if gap > -0.05 else "rises to")
+
+    bonf = sw["bonferroni"]
+    bonferroni_note = ""
+    if bonf.get("resolvable") is False:
+        bonferroni_note = (
+            f" That count cannot be read as evidence: the per-configuration p-values come "
+            f"from a finite number of permutation draws and cannot fall below "
+            f"{bonf['p_resolution']:.5f}, which is coarser than the "
+            f"{bonf['threshold']:.5f} threshold, so no configuration could have survived "
+            f"however strong it was."
+        )
 
     survives = (
         perm["pvalue"] < 0.05
@@ -53,6 +75,11 @@ def build_context(payload: dict) -> dict:
         "bootstrap_draws": str(p["bootstrap_draws"]),
         "sweep_max_draws": str(p["sweep_max_draws"]),
         "n_configs": str(p["n_configs"]),
+        "per_config_draws": str(p.get("per_config_draws", "n/a")),
+        "per_config_p_resolution": (
+            "n/a" if sw["bonferroni"].get("p_resolution") is None
+            else f"{sw['bonferroni']['p_resolution']:.5f}"
+        ),
 
         "baseline_sharpe": num(b["sharpe"]),
         "baseline_ann_return": pct(b["ann_return"]),
@@ -84,6 +111,9 @@ def build_context(payload: dict) -> dict:
         "bonferroni_threshold": f"{sw['bonferroni']['threshold']:.5f}",
 
         "breakeven_bps_oos": breakeven_text,
+        "breakeven_sentence": breakeven_sentence,
+        "oos_verb": oos_verb,
+        "bonferroni_note": bonferroni_note,
         "breakeven_bps_full": (
             "never within 50 bps" if cs["breakeven_bps_return_full"] is None
             else f"{cs['breakeven_bps_return_full']:.1f} bps"

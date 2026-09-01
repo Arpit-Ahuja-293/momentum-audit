@@ -20,7 +20,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from momaudit import costs as costs_mod
 from momaudit import data, metrics, nulls, plots, strategy, sweep, walkforward
+from momaudit.costs import COST_GRID
 from momaudit.engine import BASELINE_BPS
+
+COST_GRID_MAX = float(COST_GRID[-1])
 
 
 def git_commit() -> str:
@@ -47,6 +50,12 @@ def main() -> None:
     parser.add_argument("--permutation-draws", type=int, default=1000)
     parser.add_argument("--bootstrap-draws", type=int, default=1000)
     parser.add_argument("--sweep-max-draws", type=int, default=500)
+    parser.add_argument(
+        "--per-config-draws", type=int, default=1000,
+        help="permutation draws behind each configuration's p-value. Must be large "
+             "enough that 1/(draws+1) clears the Bonferroni threshold alpha/n_configs, "
+             "or the correction cannot be passed by any configuration.",
+    )
     parser.add_argument("--seed", type=int, default=nulls.DEFAULT_SEED)
     parser.add_argument("--bps", type=float, default=BASELINE_BPS)
     parser.add_argument("--folds", type=int, default=5)
@@ -105,13 +114,25 @@ def main() -> None:
     per_config_p = {}
     for cfg in configs:
         draws = nulls.permutation_null(
-            inputs, cfg, n_draws=200, bps_per_side=args.bps, seed=args.seed
+            inputs, cfg, n_draws=args.per_config_draws, bps_per_side=args.bps,
+            seed=args.seed,
         )
         observed = float(sweep_df.loc[sweep_df["key"] == cfg.key(), "sharpe"].iloc[0])
         per_config_p[cfg.key()] = nulls.empirical_pvalue(observed, draws)
 
     dsr = sweep.deflated_sharpe_ratio(best_res.net, n_trials=len(configs))
-    bonf = sweep.bonferroni_survivors(per_config_p, alpha=0.05)
+    # An empirical p-value from n draws cannot fall below 1/(n+1); Bonferroni is
+    # only a real test when that floor clears the threshold.
+    bonf = sweep.bonferroni_survivors(
+        per_config_p, alpha=0.05, p_resolution=1.0 / (args.per_config_draws + 1),
+    )
+    if bonf["resolvable"] is False:
+        print(
+            f"  warning: {args.per_config_draws} draws per config cannot resolve a "
+            f"p below {bonf['p_resolution']:.5f}, coarser than the Bonferroni "
+            f"threshold {bonf['threshold']:.5f} -- zero survivors is arithmetic, "
+            f"not evidence. Raise --per-config-draws."
+        )
 
     print(f"sweep-max null ({args.sweep_max_draws} draws x {len(configs)} configs)...")
     max_null = sweep.sweep_max_null(
@@ -139,6 +160,7 @@ def main() -> None:
             "permutation_draws": args.permutation_draws,
             "bootstrap_draws": args.bootstrap_draws,
             "sweep_max_draws": args.sweep_max_draws,
+            "per_config_draws": args.per_config_draws,
             "n_configs": len(configs),
         },
         "baseline": {"config": strategy.BASELINE.as_dict(), **base_summary},
@@ -193,9 +215,13 @@ def main() -> None:
     print("wrote results/audit.json")
 
     print("figures...")
+    # The references are clipped to the out-of-sample window so every curve on
+    # the chart compounds over the same dates; a reference that started three
+    # years earlier would be a different question drawn on the same axes.
+    window = oos.index
     curves = {"Momentum 12-1 (walk-forward OOS, net)": oos,
-              "Long-only top decile (full sample, net)": long_only.net,
-              "SPY buy and hold": spy}
+              "Long-only top decile (same window, net)": long_only.net.reindex(window).dropna(),
+              "SPY buy and hold (same window)": spy.reindex(window).dropna()}
     plots.plot_equity_curve(
         curves, "figures/equity_curve.png",
         "S&P 100 momentum: out-of-sample net equity curve",
@@ -206,11 +232,18 @@ def main() -> None:
         "What Sharpe does this machinery produce with no signal?",
         "permutation null (shuffled momentum ranks)",
     )
+    be_oos = payload["costs"]["breakeven_bps_return_oos"]
+    cost_title = (
+        f"Cost sensitivity: the walk-forward edge survives {COST_GRID_MAX:.0f} bps per side"
+        if be_oos is None
+        else f"Cost sensitivity: the walk-forward edge dies at {be_oos:.1f} bps per side"
+    )
     plots.plot_cost_sensitivity(
         oos_curve,
-        payload["costs"]["breakeven_bps_return_oos"],
+        be_oos,
         payload["costs"]["breakeven_bps_sharpe_oos"],
         "figures/cost_sensitivity.png",
+        title=cost_title,
     )
     print("wrote figures/")
 

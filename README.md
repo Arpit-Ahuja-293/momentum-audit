@@ -22,8 +22,8 @@ average with a standard deviation of 0.24, and its 95th percentile is
 0.14. That puts the observed Sharpe at **p = 0.018**.
 
 Walk-forward, where parameters are chosen only on data preceding each evaluation window,
-the Sharpe falls to **0.43** — a decay of **0.04** from the
-in-sample mean of 0.47.
+the Sharpe holds at **0.43**, against an in-sample mean of
+0.47 — a decay of **0.04**.
 
 Across the 32-configuration sweep the best result is
 `lb6_sk0_rb3_dc10` at Sharpe 0.47. Under the sweep-max null — the
@@ -32,12 +32,15 @@ that best-of-grid result carries **p = 0.118**, with a null 95th
 percentile of 0.53. The Deflated Sharpe Ratio, accounting for
 32 trials plus the skew and kurtosis of the returns, is **0.424**.
 Bonferroni at the 0.00156 threshold leaves **0**
-of 32 configurations standing (19 survive an
+of 32 configurations standing (21 survive an
 uncorrected 0.05).
 
-The out-of-sample edge reaches zero at **survives the full 50 bps grid**.
+The out-of-sample edge never reaches zero inside the tested grid: it is still positive at 50 bps per side.
 
 ![Out-of-sample equity curve](figures/equity_curve.png)
+
+The reference series in that figure start on the same date as the stitched
+out-of-sample series, so all three curves compound over the identical window.
 
 ![Null distribution with observed Sharpe marked](figures/null_distribution.png)
 
@@ -120,8 +123,10 @@ block 21 days) resamples the demeaned return series. 1000 and
 
 **Multiple testing.** All three corrections are reported, not just the flattering one:
 Deflated Sharpe Ratio at 32 trials, Bonferroni on per-configuration
-permutation p-values, and the sweep-max null — 500 draws in which every
-configuration runs on the same shuffled signal and only the best is kept.
+permutation p-values (1000 draws per configuration, so the finest
+resolvable p-value is 0.00100), and the sweep-max null —
+500 draws in which every configuration runs on the same shuffled signal
+and only the best is kept.
 
 ## Reproduce it
 
@@ -133,11 +138,12 @@ python3.11 -m venv .venv
 .venv/bin/python scripts/render_readme.py
 ```
 
-The committed `data/prices.parquet` means the first three commands need no network.
+Only `pip install` touches the network: the committed `data/prices.parquet` means the
+test suite and both scripts run offline.
 `scripts/download.py` is the only module that fetches anything, and rerunning it will
 produce slightly different results as the index membership and adjusted history move.
 
-Run recorded in `results/audit.json`: commit `1e54dda1`, run on 2026-08-31,
+Run recorded in `results/audit.json`: commit `6ea075e5`, run on 2026-08-31,
 seed 20260831.
 
 ## Repo layout

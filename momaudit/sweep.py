@@ -110,8 +110,20 @@ def deflated_sharpe_ratio(
     }
 
 
-def bonferroni_survivors(pvalues: dict[str, float], alpha: float = 0.05) -> dict:
-    """Crude, conservative, and instantly legible: alpha divided by the trials."""
+def bonferroni_survivors(
+    pvalues: dict[str, float],
+    alpha: float = 0.05,
+    p_resolution: float | None = None,
+) -> dict:
+    """Crude, conservative, and instantly legible: alpha divided by the trials.
+
+    ``p_resolution`` is the smallest p-value the inputs could possibly take --
+    for an empirical p-value from ``n`` draws that is ``1 / (n + 1)``. If it
+    exceeds the Bonferroni threshold, zero survivors is arithmetic rather than
+    evidence: no configuration could have passed however strong it was. The
+    returned ``resolvable`` flag says which of the two happened, so the write-up
+    cannot quietly report an unfalsifiable test as a failed one.
+    """
     keys = list(pvalues)
     n = len(keys)
     threshold = alpha / n if n else float("nan")
@@ -121,6 +133,8 @@ def bonferroni_survivors(pvalues: dict[str, float], alpha: float = 0.05) -> dict
         "alpha": alpha,
         "n_tests": n,
         "threshold": threshold,
+        "p_resolution": p_resolution,
+        "resolvable": None if p_resolution is None else bool(p_resolution <= threshold),
         "survivors_corrected": corrected,
         "survivors_raw": raw,
         "n_survivors_corrected": len(corrected),
