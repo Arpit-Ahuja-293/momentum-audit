@@ -36,6 +36,24 @@ def git_commit() -> str:
         return "unknown"
 
 
+def git_dirty() -> bool | None:
+    """Did the working tree differ from HEAD when this run started?
+
+    Recording the commit alone is not enough to make a run traceable. A run
+    launched from an edited tree produces numbers that the named commit does
+    not contain, and a reader who checks that commit out and reruns gets
+    something else. ``None`` means the question could not be answered (no git,
+    not a repository) -- which is itself not the same as "clean".
+    """
+    try:
+        out = subprocess.check_output(
+            ["git", "status", "--porcelain"], text=True, stderr=subprocess.DEVNULL
+        )
+    except Exception:
+        return None
+    return bool(out.strip())
+
+
 def jsonable(obj):
     if isinstance(obj, (np.floating, np.integer)):
         return obj.item()
@@ -188,6 +206,7 @@ def main() -> None:
     payload = {
         "provenance": {
             "git_commit": git_commit(),
+            "git_dirty": git_dirty(),
             "run_on": pd.Timestamp.today().date().isoformat(),
             "data_start": str(close.index[0].date()),
             "data_end": str(close.index[-1].date()),

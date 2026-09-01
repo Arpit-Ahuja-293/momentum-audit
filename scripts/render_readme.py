@@ -58,6 +58,21 @@ def build_context(payload: dict) -> dict:
             f"however strong it was."
         )
 
+    # A commit only traces a run if the tree matched it. Say so when it did not,
+    # rather than printing a hash that does not reproduce these numbers.
+    dirty = p.get("git_dirty")
+    if dirty:
+        provenance_caveat = (
+            " The working tree had uncommitted changes when this ran, so that commit "
+            "does not by itself reproduce these numbers."
+        )
+    elif dirty is None:
+        provenance_caveat = (
+            " Whether the working tree matched that commit was not recorded for this run."
+        )
+    else:
+        provenance_caveat = ""
+
     survives = (
         perm["pvalue"] < 0.05
         and sw["sweep_max_null"]["pvalue"] < 0.05
@@ -74,6 +89,7 @@ def build_context(payload: dict) -> dict:
         "seed": str(p["seed"]),
         "git_commit": p["git_commit"][:8],
         "run_on": p["run_on"],
+        "provenance_caveat": provenance_caveat,
         "permutation_draws": str(p["permutation_draws"]),
         "bootstrap_draws": str(p["bootstrap_draws"]),
         "sweep_max_draws": str(p["sweep_max_draws"]),

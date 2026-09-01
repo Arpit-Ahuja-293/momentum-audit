@@ -47,7 +47,10 @@ uncorrected 0.05).{{bonferroni_note}}
 ![Out-of-sample equity curve](figures/equity_curve.png)
 
 The reference series in that figure start on the same date as the stitched
-out-of-sample series, so all three curves compound over the identical window.
+out-of-sample series, so all three curves compound over the identical window. The
+vertical axis is logarithmic, so equal vertical distances are equal *ratios*: on a
+linear axis a reference compounding to 50x flattens everything below it, which is a
+claim about the strategy that the axis would be making rather than the data.
 
 ![Null distribution with observed Sharpe marked](figures/null_distribution.png)
 
@@ -140,8 +143,11 @@ drag while destroying the signal. The stationary block bootstrap (Politis-Romano
 block 21 days) resamples the demeaned return series. {{permutation_draws}} and
 {{bootstrap_draws}} draws respectively.
 
-**Multiple testing.** All three corrections are reported, not just the flattering one:
-Deflated Sharpe Ratio at {{n_configs}} trials, Bonferroni on per-configuration
+**Multiple testing.** Every correction is reported, not just the flattering one:
+the Deflated Sharpe Ratio at {{n_configs}} trials — under both the across-trial
+variance the sweep measured ({{dsr}}) and the conventional 1/(n−1) stand-in
+({{dsr_null_variance}}), because the choice between them moves the answer more than
+the data does — Bonferroni on per-configuration
 permutation p-values ({{per_config_draws}} draws per configuration, so the finest
 resolvable p-value is {{per_config_p_resolution}}), and the sweep-max null —
 {{sweep_max_draws}} draws in which every configuration runs on the same shuffled signal
@@ -163,7 +169,8 @@ test suite and both scripts run offline.
 produce slightly different results as the index membership and adjusted history move.
 
 Run recorded in `results/audit.json`: commit `{{git_commit}}`, run on {{run_on}},
-seed {{seed}}.
+seed {{seed}}.{{provenance_caveat}} The pipeline is deterministic: rerunning it on the
+committed panel at the same seed reproduces `results/audit.json` byte for byte.
 
 ## Repo layout
 

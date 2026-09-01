@@ -161,3 +161,26 @@ def test_both_deflated_sharpe_variants_reach_the_context():
     assert ctx["dsr"] == "0.870"
     assert ctx["dsr_null_variance"] == "0.420"
     assert ctx["dsr_variance_source"] == "across_trial"
+
+
+def test_a_dirty_working_tree_is_disclosed_next_to_the_commit():
+    """A commit hash only traces a run if the tree matched it at the time."""
+    payload = minimal_payload()
+    payload["provenance"]["git_dirty"] = True
+    caveat = render_readme.build_context(payload)["provenance_caveat"]
+    assert "uncommitted" in caveat
+    assert "does not by itself reproduce" in caveat
+
+
+def test_a_clean_working_tree_adds_no_caveat():
+    payload = minimal_payload()
+    payload["provenance"]["git_dirty"] = False
+    assert render_readme.build_context(payload)["provenance_caveat"] == ""
+
+
+def test_an_unrecorded_tree_state_is_not_reported_as_clean():
+    """Runs written before git_dirty existed must not claim to have been clean."""
+    payload = minimal_payload()
+    payload["provenance"].pop("git_dirty", None)
+    caveat = render_readme.build_context(payload)["provenance_caveat"]
+    assert "not recorded" in caveat
